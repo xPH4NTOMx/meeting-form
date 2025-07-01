@@ -1,16 +1,89 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ระบบบันทึกข้อมูลพนักงาน</title>
   <style>
-    body { background: #eef5fb; font-family: sans-serif; display: flex; justify-content: center; padding: 20px; }
-    .form-container { background: white; padding: 30px; border-radius: 10px; width: 400px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-    input, select, button { width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 6px; border: 1px solid #ccc; }
-    canvas { width: 100%; height: 150px; border: 2px dashed #aaa; margin-bottom: 10px; background: #fff; }
-    .btn-red { background: red; color: white; border: none; cursor: pointer; }
-    .btn-blue { background: #007bff; color: white; border: none; cursor: pointer; }
+    body {
+      background: #eef5fb;
+      font-family: sans-serif;
+      display: flex;
+      justify-content: center;
+      padding: 20px;
+      margin: 0;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+    .form-container {
+      background: white;
+      padding: 30px 20px;
+      border-radius: 10px;
+      width: 100%;
+      max-width: 400px; /* กำหนด max width */
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      box-sizing: border-box;
+    }
+    input, select, button {
+      width: 100%;
+      padding: 12px 15px;
+      margin-bottom: 15px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 1rem;
+      box-sizing: border-box;
+      transition: border-color 0.3s ease;
+    }
+    input:focus, select:focus {
+      border-color: #007bff;
+      outline: none;
+    }
+    canvas {
+      width: 100%;
+      height: 150px;
+      border: 2px dashed #aaa;
+      margin-bottom: 15px;
+      background: #fff;
+      border-radius: 6px;
+      touch-action: none; /* ป้องกันการเลื่อนหน้าจอเวลาวาดลายเซ็น */
+    }
+    .btn-red {
+      background: red;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background-color 0.3s ease;
+    }
+    .btn-red:hover {
+      background: #cc0000;
+    }
+    .btn-blue {
+      background: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background-color 0.3s ease;
+    }
+    .btn-blue:hover {
+      background: #0056b3;
+    }
+
+    /* Responsive for smaller screens */
+    @media (max-width: 480px) {
+      .form-container {
+        padding: 20px 15px;
+      }
+      input, select, button {
+        padding: 10px 12px;
+        font-size: 0.9rem;
+      }
+    }
   </style>
+
+  <!-- SweetAlert2 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
   <div class="form-container">
@@ -35,24 +108,59 @@
       const ctx = canvas.getContext("2d");
       let drawing = false;
 
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
+      // ตั้งค่าขนาด canvas ให้ตรงกับขนาดที่ CSS กำหนด (รองรับการวาดลายเซ็น)
+      function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * window.devicePixelRatio;
+        canvas.height = rect.height * window.devicePixelRatio;
+        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        ctx.lineCap = "round";
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "#000";
+      }
+      resizeCanvas();
 
       canvas.addEventListener("mousedown", () => drawing = true);
       canvas.addEventListener("mouseup", () => {
         drawing = false;
         ctx.beginPath();
       });
+      canvas.addEventListener("mouseout", () => {
+        drawing = false;
+        ctx.beginPath();
+      });
       canvas.addEventListener("mousemove", (e) => {
         if (!drawing) return;
         const rect = canvas.getBoundingClientRect();
-        ctx.lineWidth = 2;
-        ctx.lineCap = "round";
-        ctx.strokeStyle = "#000";
         ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
         ctx.stroke();
         ctx.beginPath();
         ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+      });
+
+      // รองรับ touch events สำหรับมือถือ/แท็บเล็ต
+      canvas.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        drawing = true;
+        const touch = e.touches[0];
+        const rect = canvas.getBoundingClientRect();
+        ctx.beginPath();
+        ctx.moveTo(touch.clientX - rect.left, touch.clientY - rect.top);
+      });
+      canvas.addEventListener("touchmove", (e) => {
+        e.preventDefault();
+        if (!drawing) return;
+        const touch = e.touches[0];
+        const rect = canvas.getBoundingClientRect();
+        ctx.lineTo(touch.clientX - rect.left, touch.clientY - rect.top);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(touch.clientX - rect.left, touch.clientY - rect.top);
+      });
+      canvas.addEventListener("touchend", (e) => {
+        e.preventDefault();
+        drawing = false;
+        ctx.beginPath();
       });
 
       document.getElementById("clearBtn").addEventListener("click", () => {
@@ -60,26 +168,87 @@
       });
 
       document.getElementById("submitBtn").addEventListener("click", () => {
+        // ตรวจสอบฟิลด์เบื้องต้น
+        const empId = document.getElementById("empId").value.trim();
+        const department = document.getElementById("department").value;
+        const firstName = document.getElementById("firstName").value.trim();
+        const lastName = document.getElementById("lastName").value.trim();
+
+        if (!empId || !department || !firstName || !lastName) {
+          Swal.fire({
+            icon: 'warning',
+            title: 'กรุณากรอกข้อมูลให้ครบ',
+          });
+          return;
+        }
+
+        // ตรวจสอบว่ามีลายเซ็นหรือยัง (ตรวจสอบ canvas ว่างหรือไม่)
+        const blank = isCanvasBlank(canvas);
+        if (blank) {
+          Swal.fire({
+            icon: 'warning',
+            title: 'กรุณาลงลายเซ็นก่อนบันทึก',
+          });
+          return;
+        }
+
         const data = {
-          empId: document.getElementById("empId").value,
-          department: document.getElementById("department").value,
-          firstName: document.getElementById("firstName").value,
-          lastName: document.getElementById("lastName").value,
+          empId,
+          department,
+          firstName,
+          lastName,
           signature: canvas.toDataURL()
         };
 
         fetch("https://script.google.com/macros/s/AKfycbx_MIrTE8EDTtYB3SDkR9pryrj_5cX7NtmLZgqh4R2hsjxcfBrkrZtjGH9zgCTcAyEsmg/exec", {
-  method: "POST",
-  headers: {
-    // อย่าใส่ application/json เพราะจะทำให้เกิด preflight
-    "Content-Type": "text/plain"
-  },
-  body: JSON.stringify(data)
-})
-.then(res => res.text())
-.then(msg => alert(msg === "SUCCESS" ? "✅ บันทึกสำเร็จ" : "❌ มีข้อผิดพลาด"))
-.catch(err => alert("❌ ส่งข้อมูลไม่สำเร็จ: " + err));
+          method: "POST",
+          headers: {
+            "Content-Type": "text/plain" // ป้องกัน preflight CORS
+          },
+          body: JSON.stringify(data)
+        })
+          .then(res => res.text())
+          .then(msg => {
+            if (msg === "SUCCESS") {
+              Swal.fire({
+                icon: 'success',
+                title: 'บันทึกสำเร็จ',
+                timer: 1500,
+                showConfirmButton: false
+              });
+              clearForm();
+            } else {
+              Swal.fire({
+                icon: 'error',
+                title: 'เกิดข้อผิดพลาด',
+                text: msg
+              });
+            }
+          })
+          .catch(err => {
+            Swal.fire({
+              icon: 'error',
+              title: 'ส่งข้อมูลไม่สำเร็จ',
+              text: err.message || err
+            });
+          });
       });
+
+      function clearForm() {
+        document.getElementById("empId").value = "";
+        document.getElementById("department").value = "";
+        document.getElementById("firstName").value = "";
+        document.getElementById("lastName").value = "";
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+
+      // ฟังก์ชันเช็คว่า canvas ว่างเปล่าหรือไม่
+      function isCanvasBlank(c) {
+        const blankCanvas = document.createElement('canvas');
+        blankCanvas.width = c.width;
+        blankCanvas.height = c.height;
+        return c.toDataURL() === blankCanvas.toDataURL();
+      }
     });
   </script>
 </body>
