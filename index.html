@@ -47,7 +47,6 @@
       background: #fff;
       border-radius: 6px;
       touch-action: none;
-      cursor: crosshair;
     }
     .btn-red {
       background: red;
@@ -55,10 +54,6 @@
       border: none;
       cursor: pointer;
       font-weight: bold;
-      transition: background-color 0.3s ease;
-    }
-    .btn-red:hover {
-      background: #cc0000;
     }
     .btn-blue {
       background: #007bff;
@@ -66,44 +61,34 @@
       border: none;
       cursor: pointer;
       font-weight: bold;
-      transition: background-color 0.3s ease;
-    }
-    .btn-blue:hover {
-      background: #0056b3;
     }
 
-    /* Loading overlay */
+    /* Loading Overlay */
     #loadingOverlay {
-      display: none;
-      position: absolute;
+      position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
       background: rgba(255, 255, 255, 0.8);
-      z-index: 1000;
-      display: flex;
+      z-index: 9999;
+      display: none;
       align-items: center;
       justify-content: center;
-      border-radius: 10px;
-      font-size: 1.2rem;
-      font-weight: bold;
-      color: #007bff;
+      font-size: 1.5rem;
+      color: #333;
     }
 
-    /* Responsive for smaller screens */
+    /* Responsive */
     @media (max-width: 480px) {
       .form-container {
         padding: 20px 15px;
       }
-      input, select, button {
-        padding: 10px 12px;
-        font-size: 0.9rem;
-      }
     }
   </style>
-
-  <!-- SweetAlert2 CDN -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
+
+  <div id="loadingOverlay">⏳ กำลังบันทึกข้อมูล...</div>
+
   <div class="form-container">
     <h3>ระบบบันทึกข้อมูลพนักงาน</h3>
     <input id="empId" placeholder="รหัสพนักงาน" required />
@@ -118,46 +103,26 @@
     <canvas id="signature"></canvas>
     <button type="button" class="btn-red" id="clearBtn">ล้างลายเซ็น</button>
     <button type="button" class="btn-blue" id="submitBtn">บันทึกข้อมูล</button>
-
-    <div id="loadingOverlay">กำลังบันทึกข้อมูล...</div>
   </div>
 
   <script>
     window.addEventListener("DOMContentLoaded", () => {
       const canvas = document.getElementById("signature");
-      const ctx = canvas.getContext("2d");
-      const submitBtn = document.getElementById("submitBtn");
-      const loadingOverlay = document.getElementById("loadingOverlay");
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
       let drawing = false;
 
       function resizeCanvas() {
         const rect = canvas.getBoundingClientRect();
-        // เก็บข้อมูลเดิมไว้ก่อนล้าง canvas
-        const oldImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-        canvas.width = rect.width * window.devicePixelRatio;
-        canvas.height = rect.height * window.devicePixelRatio;
-
-        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        canvas.width = rect.width;
+        canvas.height = rect.height;
         ctx.lineCap = "round";
         ctx.lineWidth = 2;
         ctx.strokeStyle = "#000";
-
-        // คืนค่าข้อมูลภาพเดิม (อาจจะไม่สมบูรณ์ 100% แต่พอได้)
-        ctx.putImageData(oldImage, 0, 0);
       }
       resizeCanvas();
 
-      window.addEventListener("resize", () => {
-        resizeCanvas();
-      });
-
       canvas.addEventListener("mousedown", () => drawing = true);
       canvas.addEventListener("mouseup", () => {
-        drawing = false;
-        ctx.beginPath();
-      });
-      canvas.addEventListener("mouseout", () => {
         drawing = false;
         ctx.beginPath();
       });
@@ -188,8 +153,7 @@
         ctx.beginPath();
         ctx.moveTo(touch.clientX - rect.left, touch.clientY - rect.top);
       });
-      canvas.addEventListener("touchend", (e) => {
-        e.preventDefault();
+      canvas.addEventListener("touchend", () => {
         drawing = false;
         ctx.beginPath();
       });
@@ -198,21 +162,6 @@
         ctx.clearRect(0, 0, canvas.width, canvas.height);
       });
 
-      function isCanvasBlank(c) {
-        const blankCanvas = document.createElement('canvas');
-        blankCanvas.width = c.width;
-        blankCanvas.height = c.height;
-        return c.toDataURL() === blankCanvas.toDataURL();
-      }
-
-      function clearForm() {
-        document.getElementById("empId").value = "";
-        document.getElementById("department").value = "";
-        document.getElementById("firstName").value = "";
-        document.getElementById("lastName").value = "";
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-      }
-
       document.getElementById("submitBtn").addEventListener("click", () => {
         const empId = document.getElementById("empId").value.trim();
         const department = document.getElementById("department").value;
@@ -220,24 +169,14 @@
         const lastName = document.getElementById("lastName").value.trim();
 
         if (!empId || !department || !firstName || !lastName) {
-          Swal.fire({
-            icon: 'warning',
-            title: 'กรุณากรอกข้อมูลให้ครบ',
-          });
+          Swal.fire({ icon: 'warning', title: 'กรุณากรอกข้อมูลให้ครบ' });
           return;
         }
 
         if (isCanvasBlank(canvas)) {
-          Swal.fire({
-            icon: 'warning',
-            title: 'กรุณาลงลายเซ็นก่อนบันทึก',
-          });
+          Swal.fire({ icon: 'warning', title: 'กรุณาลงลายเซ็นก่อนบันทึก' });
           return;
         }
-
-        // แสดง loading + disable ปุ่มบันทึก
-        loadingOverlay.style.display = "flex";
-        submitBtn.disabled = true;
 
         const data = {
           empId,
@@ -247,6 +186,11 @@
           signature: canvas.toDataURL()
         };
 
+        // แสดง overlay และปิดปุ่ม
+        document.getElementById("loadingOverlay").style.display = "flex";
+        const submitBtn = document.getElementById("submitBtn");
+        submitBtn.disabled = true;
+
         fetch("https://script.google.com/macros/s/AKfycbx_MIrTE8EDTtYB3SDkR9pryrj_5cX7NtmLZgqh4R2hsjxcfBrkrZtjGH9zgCTcAyEsmg/exec", {
           method: "POST",
           headers: {
@@ -254,36 +198,39 @@
           },
           body: JSON.stringify(data)
         })
-          .then(res => res.text())
-          .then(msg => {
-            loadingOverlay.style.display = "none";
-            submitBtn.disabled = false;
-            if (msg === "SUCCESS") {
-              Swal.fire({
-                icon: 'success',
-                title: 'บันทึกสำเร็จ',
-                timer: 1500,
-                showConfirmButton: false
-              });
-              clearForm();
-            } else {
-              Swal.fire({
-                icon: 'error',
-                title: 'เกิดข้อผิดพลาด',
-                text: msg
-              });
-            }
-          })
-          .catch(err => {
-            loadingOverlay.style.display = "none";
-            submitBtn.disabled = false;
-            Swal.fire({
-              icon: 'error',
-              title: 'ส่งข้อมูลไม่สำเร็จ',
-              text: err.message || err
-            });
-          });
+        .then(res => res.text())
+        .then(msg => {
+          document.getElementById("loadingOverlay").style.display = "none";
+          submitBtn.disabled = false;
+
+          if (msg === "SUCCESS") {
+            Swal.fire({ icon: 'success', title: 'บันทึกสำเร็จ', timer: 1500, showConfirmButton: false });
+            clearForm();
+          } else {
+            Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: msg });
+          }
+        })
+        .catch(err => {
+          document.getElementById("loadingOverlay").style.display = "none";
+          submitBtn.disabled = false;
+          Swal.fire({ icon: 'error', title: 'ส่งข้อมูลไม่สำเร็จ', text: err.message || err });
+        });
       });
+
+      function clearForm() {
+        document.getElementById("empId").value = "";
+        document.getElementById("department").value = "";
+        document.getElementById("firstName").value = "";
+        document.getElementById("lastName").value = "";
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+
+      function isCanvasBlank(c) {
+        const blank = document.createElement('canvas');
+        blank.width = c.width;
+        blank.height = c.height;
+        return c.toDataURL() === blank.toDataURL();
+      }
     });
   </script>
 </body>
