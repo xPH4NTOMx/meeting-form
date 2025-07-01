@@ -183,14 +183,15 @@
           department,
           firstName,
           lastName,
-          signature: canvas.toDataURL()
+          signature: canvas.toDataURL("image/png", 0.3)
         };
 
         // แสดง overlay และปิดปุ่ม
         document.getElementById("loadingOverlay").style.display = "flex";
         const submitBtn = document.getElementById("submitBtn");
         submitBtn.disabled = true;
-
+        
+        //URL GAS
         fetch("https://script.google.com/macros/s/AKfycbx_MIrTE8EDTtYB3SDkR9pryrj_5cX7NtmLZgqh4R2hsjxcfBrkrZtjGH9zgCTcAyEsmg/exec", {
           method: "POST",
           headers: {
