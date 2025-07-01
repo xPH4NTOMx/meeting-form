@@ -20,9 +20,10 @@
       padding: 30px 20px;
       border-radius: 10px;
       width: 100%;
-      max-width: 400px; /* กำหนด max width */
+      max-width: 400px;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
       box-sizing: border-box;
+      position: relative;
     }
     input, select, button {
       width: 100%;
@@ -45,7 +46,8 @@
       margin-bottom: 15px;
       background: #fff;
       border-radius: 6px;
-      touch-action: none; /* ป้องกันการเลื่อนหน้าจอเวลาวาดลายเซ็น */
+      touch-action: none;
+      cursor: crosshair;
     }
     .btn-red {
       background: red;
@@ -68,6 +70,22 @@
     }
     .btn-blue:hover {
       background: #0056b3;
+    }
+
+    /* Loading overlay */
+    #loadingOverlay {
+      display: none;
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(255, 255, 255, 0.8);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: #007bff;
     }
 
     /* Responsive for smaller screens */
@@ -98,27 +116,41 @@
     <input id="firstName" placeholder="ชื่อ" required />
     <input id="lastName" placeholder="นามสกุล" required />
     <canvas id="signature"></canvas>
-    <button type="button" class="btn-red" id="clearBtn" required>ล้างลายเซ็น</button>
-    <button type="button" class="btn-blue" id="submitBtn" required>บันทึกข้อมูล</button>
+    <button type="button" class="btn-red" id="clearBtn">ล้างลายเซ็น</button>
+    <button type="button" class="btn-blue" id="submitBtn">บันทึกข้อมูล</button>
+
+    <div id="loadingOverlay">กำลังบันทึกข้อมูล...</div>
   </div>
 
   <script>
     window.addEventListener("DOMContentLoaded", () => {
       const canvas = document.getElementById("signature");
       const ctx = canvas.getContext("2d");
+      const submitBtn = document.getElementById("submitBtn");
+      const loadingOverlay = document.getElementById("loadingOverlay");
       let drawing = false;
 
-      // ตั้งค่าขนาด canvas ให้ตรงกับขนาดที่ CSS กำหนด (รองรับการวาดลายเซ็น)
       function resizeCanvas() {
         const rect = canvas.getBoundingClientRect();
+        // เก็บข้อมูลเดิมไว้ก่อนล้าง canvas
+        const oldImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
         canvas.width = rect.width * window.devicePixelRatio;
         canvas.height = rect.height * window.devicePixelRatio;
+
         ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
         ctx.lineCap = "round";
         ctx.lineWidth = 2;
         ctx.strokeStyle = "#000";
+
+        // คืนค่าข้อมูลภาพเดิม (อาจจะไม่สมบูรณ์ 100% แต่พอได้)
+        ctx.putImageData(oldImage, 0, 0);
       }
       resizeCanvas();
+
+      window.addEventListener("resize", () => {
+        resizeCanvas();
+      });
 
       canvas.addEventListener("mousedown", () => drawing = true);
       canvas.addEventListener("mouseup", () => {
@@ -138,7 +170,6 @@
         ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
       });
 
-      // รองรับ touch events สำหรับมือถือ/แท็บเล็ต
       canvas.addEventListener("touchstart", (e) => {
         e.preventDefault();
         drawing = true;
@@ -167,8 +198,22 @@
         ctx.clearRect(0, 0, canvas.width, canvas.height);
       });
 
+      function isCanvasBlank(c) {
+        const blankCanvas = document.createElement('canvas');
+        blankCanvas.width = c.width;
+        blankCanvas.height = c.height;
+        return c.toDataURL() === blankCanvas.toDataURL();
+      }
+
+      function clearForm() {
+        document.getElementById("empId").value = "";
+        document.getElementById("department").value = "";
+        document.getElementById("firstName").value = "";
+        document.getElementById("lastName").value = "";
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+
       document.getElementById("submitBtn").addEventListener("click", () => {
-        // ตรวจสอบฟิลด์เบื้องต้น
         const empId = document.getElementById("empId").value.trim();
         const department = document.getElementById("department").value;
         const firstName = document.getElementById("firstName").value.trim();
@@ -182,15 +227,17 @@
           return;
         }
 
-        // ตรวจสอบว่ามีลายเซ็นหรือยัง (ตรวจสอบ canvas ว่างหรือไม่)
-        const blank = isCanvasBlank(canvas);
-        if (blank) {
+        if (isCanvasBlank(canvas)) {
           Swal.fire({
             icon: 'warning',
             title: 'กรุณาลงลายเซ็นก่อนบันทึก',
           });
           return;
         }
+
+        // แสดง loading + disable ปุ่มบันทึก
+        loadingOverlay.style.display = "flex";
+        submitBtn.disabled = true;
 
         const data = {
           empId,
@@ -203,12 +250,14 @@
         fetch("https://script.google.com/macros/s/AKfycbx_MIrTE8EDTtYB3SDkR9pryrj_5cX7NtmLZgqh4R2hsjxcfBrkrZtjGH9zgCTcAyEsmg/exec", {
           method: "POST",
           headers: {
-            "Content-Type": "text/plain" // ป้องกัน preflight CORS
+            "Content-Type": "text/plain"
           },
           body: JSON.stringify(data)
         })
           .then(res => res.text())
           .then(msg => {
+            loadingOverlay.style.display = "none";
+            submitBtn.disabled = false;
             if (msg === "SUCCESS") {
               Swal.fire({
                 icon: 'success',
@@ -226,6 +275,8 @@
             }
           })
           .catch(err => {
+            loadingOverlay.style.display = "none";
+            submitBtn.disabled = false;
             Swal.fire({
               icon: 'error',
               title: 'ส่งข้อมูลไม่สำเร็จ',
@@ -233,22 +284,6 @@
             });
           });
       });
-
-      function clearForm() {
-        document.getElementById("empId").value = "";
-        document.getElementById("department").value = "";
-        document.getElementById("firstName").value = "";
-        document.getElementById("lastName").value = "";
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-      }
-
-      // ฟังก์ชันเช็คว่า canvas ว่างเปล่าหรือไม่
-      function isCanvasBlank(c) {
-        const blankCanvas = document.createElement('canvas');
-        blankCanvas.width = c.width;
-        blankCanvas.height = c.height;
-        return c.toDataURL() === blankCanvas.toDataURL();
-      }
     });
   </script>
 </body>
