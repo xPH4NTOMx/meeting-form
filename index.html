@@ -69,13 +69,16 @@
         };
 
         fetch("https://script.google.com/macros/s/AKfycbx_MIrTE8EDTtYB3SDkR9pryrj_5cX7NtmLZgqh4R2hsjxcfBrkrZtjGH9zgCTcAyEsmg/exec", {
-          method: "POST",
-          body: JSON.stringify(data),
-          headers: { "Content-Type": "application/json" }
-        })
-        .then(res => res.text())
-        .then(msg => alert(msg === "SUCCESS" ? "✅ บันทึกสำเร็จ" : "❌ มีข้อผิดพลาด"))
-        .catch(err => alert("❌ ส่งข้อมูลไม่สำเร็จ"));
+  method: "POST",
+  headers: {
+    // อย่าใส่ application/json เพราะจะทำให้เกิด preflight
+    "Content-Type": "text/plain"
+  },
+  body: JSON.stringify(data)
+})
+.then(res => res.text())
+.then(msg => alert(msg === "SUCCESS" ? "✅ บันทึกสำเร็จ" : "❌ มีข้อผิดพลาด"))
+.catch(err => alert("❌ ส่งข้อมูลไม่สำเร็จ: " + err));
       });
     });
   </script>
