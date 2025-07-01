@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>ระบบบันทึกข้อมูลการประชุม</title>
+  <style>
+    body { background: #eef5fb; font-family: sans-serif; display: flex; justify-content: center; padding: 20px; }
+    .form-container { background: white; padding: 30px; border-radius: 10px; width: 400px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    input, select, button { width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 6px; border: 1px solid #ccc; }
+    canvas { width: 100%; height: 150px; border: 2px dashed #aaa; margin-bottom: 10px; }
+    .btn-red { background: red; color: white; }
+    .btn-blue { background: #007bff; color: white; }
+  </style>
+</head>
+<body>
+  <div class="form-container">
+    <h3>ระบบบันทึกข้อมูลพนักงาน</h3>
+    <input id="empId" placeholder="รหัสพนักงาน" required />
+    <select id="department" required>
+      <option value="">เลือกแผนก</option>
+      <option>IT</option>
+      <option>HR</option>
+      <option>บัญชี</option>
+    </select>
+    <input id="firstName" placeholder="ชื่อ" required />
+    <input id="lastName" placeholder="นามสกุล" required />
+    <canvas id="signature"></canvas>
+    <button class="btn-red" onclick="clearCanvas()">ล้างลายเซ็น</button>
+    <button class="btn-blue" onclick="submitForm()">บันทึกข้อมูล</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("signature");
+    const ctx = canvas.getContext("2d");
+    canvas.width = 360;
+    canvas.height = 150;
+    let drawing = false;
+
+    canvas.onmousedown = () => drawing = true;
+    canvas.onmouseup = () => { drawing = false; ctx.beginPath(); };
+    canvas.onmousemove = draw;
+    function draw(e) {
+      if (!drawing) return;
+      ctx.lineWidth = 2;
+      ctx.lineCap = "round";
+      ctx.strokeStyle = "#000";
+      ctx.lineTo(e.offsetX, e.offsetY);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(e.offsetX, e.offsetY);
+    }
+
+    function clearCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function submitForm() {
+      const data = {
+        empId: document.getElementById("empId").value,
+        department: document.getElementById("department").value,
+        firstName: document.getElementById("firstName").value,
+        lastName: document.getElementById("lastName").value,
+        signature: canvas.toDataURL()
+      };
+
+      fetch("YOUR_WEB_APP_URL_HERE", {  // <<< ใส่ URL จาก Apps Script
+        method: "POST",
+        body: JSON.stringify(data),
+        headers: { "Content-Type": "application/json" }
+      })
+      .then(res => res.text())
+      .then(msg => alert(msg === "SUCCESS" ? "✅ บันทึกสำเร็จ" : "❌ มีข้อผิดพลาด"))
+      .catch(err => alert("❌ ส่งข้อมูลไม่สำเร็จ"));
+    }
+  </script>
+</body>
+</html>
